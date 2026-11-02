@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Expiry Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen p-4">
+    <div class="max-w-md mx-auto space-y-6">
+        <!-- Header -->
+        <header class="text-center py-4">
+            <h1 class="text-2xl font-bold tracking-tight text-emerald-400">Expiry Tracker</h1>
+            <p class="text-sm text-slate-400">Manage inventory & track expiration dates</p>
+        </header>
+
+        <!-- Alerts / Upcoming Expiry Banner (1 Month Window) -->
+        <div id="alertBanner" class="hidden bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 shadow-lg space-y-2">
+            <div class="flex items-center gap-2 text-amber-400 font-semibold text-sm">
+                <span>⚠️</span>
+                <span>Attention Needed</span>
+            </div>
+            <p id="alertText" class="text-xs text-amber-200/80"></p>
+        </div>
+
+        <!-- Action Card -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl space-y-4">
+            <h2 class="text-lg font-semibold text-slate-200">Add New Item</h2>
+            
+            <form id="itemForm" class="space-y-3">
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Item Name / Barcode</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="itemName" required placeholder="e.g., Milk or Barcode #" 
+                            class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-emerald-500">
+                        <button type="button" id="startScanBtn" 
+                            class="bg-slate-800 hover:bg-slate-700 px-3 py-2 rounded-xl text-xs font-medium transition flex items-center gap-1">
+                            📷 Scan
+                        </button>
+                    </div>
+                    <p id="lookupStatus" class="text-xs text-emerald-400 mt-1 hidden"></p>
+                </div>
+
+                <!-- Scanner Container -->
+                <div id="reader" class="hidden rounded-xl overflow-hidden border border-slate-800"></div>
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Expiry Date</label>
+                    <input type="date" id="expiryDate" required 
+                        class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-emerald-500">
+                </div>
+
+                <button type="submit" 
+                    class="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-semibold py-2.5 rounded-xl text-sm transition shadow-lg shadow-emerald-500/10">
+                    Save Item
+                </button>
+            </form>
+        </div>
+
+        <!-- Inventory List -->
+        <div class="space-y-3">
+            <div class="flex items-center justify-between px-1">
+                <h2 class="text-lg font-semibold text-slate-200">Tracked Inventory</h2>
+                <span id="itemCount" class="text-xs text-slate-400">0 items</span>
+            </div>
+            <div id="inventoryList" class="space-y-2">
+                <!-- Dynamic Items Go Here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let scanner = null;
+        let items = JSON.parse(localStorage.getItem('expiry_items') || '[]');
+
+        function saveAndRender() {
+            localStorage.setItem('expiry_items', JSON.stringify(items));
+            renderItems();
+        }
+
+        function renderItems() {
+            const listEl = document.getElementById('inventoryList');
+            const alertBanner = document.getElementById('alertBanner');
+            const alertText = document.getElementById('alertText');
+            const itemCountEl = document.getElementById('itemCount');
+            
+            itemCountEl.textContent = `${items.length} item${items.length === 1 ? '' : 's'}`;
+
+            if (items.length === 0) {
+                listEl.innerHTML = `<p class="text-center text-slate-500 py-6 text-sm">No items tracked yet.</p>`;
+                alertBanner.classList.add('hidden');
+                return;
+            }
+
+            // Calculate dates for 1 month warning window
+            const todayObj = new Date();
+            const todayStr = todayObj.toISOString().split('T')[0];
+            
+            const oneMonthAhead = new Date();
+            oneMonthAhead.setMonth(todayObj.getMonth() + 1);
+            const oneMonthStr = oneMonthAhead.toISOString().split('T')[0];
+
+            let urgentCount = 0;
+            let expiredCount = 0;
+
+            // Sort items by expiry date (soonest first)
+            items.sort((a, b) => new Date(a.expiryDate) - new Date(b.expiryDate));
+
+            listEl.innerHTML = items.map((item, index) => {
+                let statusBadge = '';
+                if (item.expiryDate < todayStr) {
+                    expiredCount++;
+                    statusBadge = '<span class="bg-red-500/10 text-red-400 border border-red-500/20 text-[10px] px-2 py-0.5 rounded-full font-medium">Expired</span>';
+                } else if (item.expiryDate === todayStr) {
+                    urgentCount++;
+                    statusBadge = '<span class="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] px-2 py-0.5 rounded-full font-medium">Expires Today</span>';
+                } else if (item.expiryDate <= oneMonthStr) {
+                    urgentCount++;
+                    statusBadge = '<span class="bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 text-[10px] px-2 py-0.5 rounded-full font-medium">Due in &lt; 1 Mo</span>';
+                } else {
+                    statusBadge = '<span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] px-2 py-0.5 rounded-full font-medium">Safe</span>';
+                }
+
+                // Escaped item name for safe inline string passing
+                const safeName = item.name.replace(/'/g, "\\'");
+
+                return `
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex items-center justify-between shadow-sm">
+                        <div>
+                            <h3 class="font-medium text-sm text-slate-200">${item.name}</h3>
+                            <p class="text-xs text-slate-400">Expiry Date: <span class="text-slate-200 font-medium">${item.expiryDate}</span></p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            ${statusBadge}
+                            <button onclick="deleteItem(${index}, '${safeName}')" class="text-slate-500 hover:text-red-400 text-xs px-2 py-1">✕</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Handle Alert Banner Notification Text
+            if (urgentCount > 0 || expiredCount > 0) {
+                alertBanner.classList.remove('hidden');
+                let messages = [];
+                if (expiredCount > 0) messages.push(`${expiredCount} item(s) have expired`);
+                if (urgentCount > 0) messages.push(`${urgentCount} item(s) expire within the next month`);
+                alertText.textContent = messages.join('. ') + '.';
+            } else {
+                alertBanner.classList.add('hidden');
+            }
+        }
+
+        // Delete confirmation
+        function deleteItem(index, name) {
+            const confirmed = confirm(`Are you sure you want to delete "${name}"?`);
+            if (confirmed) {
+                items.splice(index, 1);
+                saveAndRender();
+            }
+        }
+
+        document.getElementById('itemForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = document.getElementById('itemName').value;
+            const expiryDate = document.getElementById('expiryDate').value;
+
+            items.push({ name, expiryDate });
+            saveAndRender();
+            e.target.reset();
+            document.getElementById('lookupStatus').classList.add('hidden');
+        });
+
+        // Barcode Lookup Function
+        async function fetchProductName(barcode) {
+            const statusEl = document.getElementById('lookupStatus');
+            const nameInput = document.getElementById('itemName');
+            
+            statusEl.textContent = "🔍 Looking up product info...";
+            statusEl.classList.remove('hidden');
+            nameInput.value = barcode;
+
+            try {
+                const response = await fetch(`https://world.openfoodfacts.org/api/v2/product/${barcode}.json`);
+                const data = await response.json();
+
+                if (data.status === 1 && data.product) {
+                    const productName = data.product.product_name || data.product.product_name_en || barcode;
+                    const brand = data.product.brands ? ` (${data.product.brands})` : '';
+                    nameInput.value = `${productName}${brand}`;
+                    statusEl.textContent = "✓ Product found!";
+                } else {
+                    statusEl.textContent = "⚠️ Product not found. You can edit the name manually.";
+                }
+            } catch (err) {
+                statusEl.textContent = "⚠️ Lookup error. Saved barcode number.";
+            }
+        }
+
+        // Barcode Scanner Setup
+        document.getElementById('startScanBtn').addEventListener('click', () => {
+            const readerEl = document.getElementById('reader');
+            readerEl.classList.toggle('hidden');
+            
+            if (!readerEl.classList.contains('hidden')) {
+                scanner = new Html5Qrcode("reader");
+                scanner.start(
+                    { facingMode: "environment" },
+                    { fps: 10, qrbox: 250 },
+                    (decodedText) => {
+                        scanner.stop();
+                        readerEl.classList.add('hidden');
+                        fetchProductName(decodedText);
+                    },
+                    (error) => {}
+                ).catch(err => {
+                    alert("Camera access error: " + err);
+                });
+            } else if (scanner) {
+                scanner.stop();
+            }
+        });
+
+        renderItems();
+    </script>
+</body>
+</html>
