@@ -4,10 +4,21 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Expiry Tracker</title>
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <style>
+    body { font-family: sans-serif; background: #121212; color: #fff; text-align: center; padding: 20px; }
+    button { padding: 12px 20px; margin: 10px; font-size: 16px; border-radius: 8px; border: none; background: #007bff; color: white; cursor: pointer; }
+    #reader { width: 100%; max-width: 400px; margin: 20px auto; background: #222; display: none; }
+    #result { margin-top: 15px; font-weight: bold; color: #4caf50; }
+  </style>
 </head>
 <body>
   <h1>Expiry Tracker</h1>
   <button onclick="enableNotifications()">Enable Notifications</button>
+  <button onclick="openScanner()">Open Barcode Scanner</button>
+
+  <div id="reader"></div>
+  <div id="result"></div>
 
   <script src="./app.js"></script>
 </body>
