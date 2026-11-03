@@ -104,19 +104,53 @@ function loadProducts() {
   const listContainer = document.getElementById('item-list');
   
   if (products.length === 0) {
-    listContainer.innerHTML = '<p style="color: #777;">No items tracked yet.</p>';
+    listContainer.innerHTML = '<p style="color: #6b7280; padding: 20px 0;">No items tracked yet.</p>';
     return;
   }
 
-  listContainer.innerHTML = products.map(p => `
-    <div class="item-card">
-      <div class="item-info">
-        <h4>${p.name}</h4>
-        <p>Expires: ${p.date} ${p.barcode ? '<br><small>Barcode: ' + p.barcode + '</small>' : ''}</p>
+  const today = new Date();
+  today.setHours(0,0,0,0);
+
+  listContainer.innerHTML = products.map(p => {
+    const expDate = new Date(p.date);
+    expDate.setHours(0,0,0,0);
+    const diffTime = expDate - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    let statusClass = 'safe';
+    let badgeText = `Expires in ${diffDays} days`;
+
+    if (diffDays < 0) {
+      statusClass = 'red';
+      badgeText = `Expired ${Math.abs(diffDays)} days ago`;
+    } else if (diffDays === 0) {
+      statusClass = 'red';
+      badgeText = 'Expires Today!';
+    } else if (diffDays <= 7) {
+      statusClass = 'red';
+      badgeText = `Expires in ${diffDays} days (1 Week)`;
+    } else if (diffDays <= 14) {
+      statusClass = 'amber';
+      badgeText = `Expires in ${diffDays} days (2 Weeks)`;
+    } else if (diffDays <= 30) {
+      statusClass = 'yellow';
+      badgeText = `Expires in ${diffDays} days (1 Month)`;
+    } else {
+      statusClass = 'safe';
+      badgeText = `Expires in ${diffDays} days`;
+    }
+
+    return `
+      <div class="item-card ${statusClass}">
+        <div class="item-info">
+          <h4>${p.name}</h4>
+          <p>📅 ${p.date} ${p.barcode ? '<br><small>Barcode: ' + p.barcode + '</small>' : ''}</p>
+          <span class="badge ${statusClass}">${badgeText}</span>
+        </div>
+        <button class="delete-btn" onclick="deleteProduct(${p.id})">Delete</button>
       </div>
-      <button class="delete-btn" onclick="deleteProduct(${p.id})">Delete</button>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 }
 
 function deleteProduct(id) {

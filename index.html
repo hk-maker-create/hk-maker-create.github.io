@@ -4,49 +4,77 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Expiry Tracker</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
   <style>
-    body { font-family: sans-serif; background: #121212; color: #fff; margin: 0; padding: 20px; text-align: center; }
-    .container { max-width: 500px; margin: 0 auto; }
-    button { padding: 12px 20px; margin: 8px; font-size: 16px; border-radius: 8px; border: none; background: #007bff; color: white; cursor: pointer; }
-    button.secondary { background: #6c757d; }
-    input, select { padding: 10px; margin: 8px; width: 80%; max-width: 300px; border-radius: 6px; border: 1px solid #444; background: #222; color: #fff; font-size: 16px; }
+    * { box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: #0f1115; color: #f3f4f6; margin: 0; padding: 16px; text-align: center; }
+    .container { max-width: 480px; margin: 0 auto; }
+    h1 { font-size: 24px; font-weight: 700; margin-bottom: 20px; color: #ffffff; letter-spacing: -0.5px; }
+    
+    button { padding: 14px 20px; margin: 6px 0; width: 100%; font-size: 16px; font-weight: 600; border-radius: 12px; border: none; background: #2563eb; color: white; cursor: pointer; transition: background 0.2s, transform 0.1s; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3); }
+    button:active { transform: scale(0.98); }
+    button.secondary { background: #1f2937; color: #d1d5db; box-shadow: none; border: 1px solid #374151; }
+    
+    input, select { padding: 14px; margin: 8px 0; width: 100%; border-radius: 10px; border: 1px solid #374151; background: #1f2937; color: #fff; font-size: 16px; font-family: 'Inter', sans-serif; outline: none; }
+    input:focus { border-color: #2563eb; }
+    
     .view { display: none; }
     .view.active { display: block; }
-    #reader { width: 100%; max-width: 400px; margin: 20px auto; background: #222; }
-    .item-card { background: #1e1e1e; padding: 12px; margin: 10px 0; border-radius: 8px; border-left: 5px solid #007bff; text-align: left; display: flex; justify-content: space-between; align-items: center; }
-    .item-info h4 { margin: 0 0 5px 0; }
-    .item-info p { margin: 0; font-size: 14px; color: #aaa; }
-    .delete-btn { background: #dc3545; padding: 6px 12px; font-size: 14px; }
+    
+    #reader { width: 100%; max-width: 400px; margin: 20px auto; background: #1f2937; border-radius: 12px; overflow: hidden; border: 1px solid #374151; }
+    
+    .item-card { background: #161b22; padding: 16px; margin: 12px 0; border-radius: 12px; border: 1px solid #30363d; text-align: left; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+    .item-card.red { border-left: 5px solid #ef4444; background: rgba(239, 68, 68, 0.05); }
+    .item-card.amber { border-left: 5px solid #f97316; background: rgba(249, 115, 22, 0.05); }
+    .item-card.yellow { border-left: 5px solid #eab308; background: rgba(234, 179, 8, 0.05); }
+    .item-card.safe { border-left: 5px solid #10b981; }
+
+    .item-info h4 { margin: 0 0 4px 0; font-size: 16px; font-weight: 600; color: #fff; }
+    .item-info p { margin: 0; font-size: 13px; color: #9ca3af; }
+    
+    .badge { display: inline-block; padding: 2px 8px; font-size: 11px; font-weight: 600; border-radius: 6px; margin-top: 6px; }
+    .badge.red { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+    .badge.amber { background: rgba(249, 115, 22, 0.2); color: #f97316; }
+    .badge.yellow { background: rgba(234, 179, 8, 0.2); color: #eab308; }
+    .badge.safe { background: rgba(16, 185, 129, 0.2); color: #10b981; }
+
+    .delete-btn { background: #fee2e2; color: #dc2626; padding: 8px 12px; font-size: 13px; border-radius: 8px; width: auto; box-shadow: none; font-weight: 500; }
+    .delete-btn:hover { background: #fecaca; }
+    
+    .actions-group { display: flex; flex-direction: column; gap: 4px; margin-bottom: 20px; }
+    .section-title { text-align: left; font-size: 18px; font-weight: 600; margin: 24px 0 12px 0; color: #e5e7eb; }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Expiry Tracker</h1>
 
-    <!-- Home View: Saved Items & Actions -->
+    <!-- Home View -->
     <div id="home-view" class="view active">
-      <button onclick="showScannerView()">📷 Scan Barcode</button>
-      <button class="secondary" onclick="showAddView()">➕ Add Manually</button>
-      <button class="secondary" onclick="enableNotifications()">🔔 Enable Notifications</button>
+      <div class="actions-group">
+        <button onclick="showScannerView()">📷 Scan Barcode</button>
+        <button class="secondary" onclick="showAddView()">➕ Add Manually</button>
+        <button class="secondary" onclick="enableNotifications()">🔔 Enable Notifications</button>
+      </div>
       
-      <h3>Tracked Items</h3>
+      <div class="section-title">Tracked Items</div>
       <div id="item-list"></div>
     </div>
 
     <!-- Scanner View -->
     <div id="scanner-view" class="view">
-      <button class="secondary" onclick="showHomeView()">← Back</button>
+      <button class="secondary" onclick="showHomeView()">← Back to Dashboard</button>
       <div id="reader"></div>
     </div>
 
-    <!-- Add / Edit Item View -->
+    <!-- Add Item View -->
     <div id="add-view" class="view">
-      <button class="secondary" onclick="showHomeView()">← Back</button>
-      <h3>Product Details</h3>
-      <input type="text" id="product-name" placeholder="Product Name"><br>
-      <input type="text" id="product-barcode" placeholder="Barcode (Optional)" readonly><br>
-      <input type="date" id="expiry-date"><br>
+      <button class="secondary" onclick="showHomeView()">← Back to Dashboard</button>
+      <div class="section-title">Product Details</div>
+      <input type="text" id="product-name" placeholder="Product Name">
+      <input type="text" id="product-barcode" placeholder="Barcode (Optional)" readonly>
+      <input type="date" id="expiry-date">
       <button onclick="saveProduct()">Save Product</button>
     </div>
   </div>
