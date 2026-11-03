@@ -1,11 +1,17 @@
-self.addEventListener('push', function(event) {
-  const data = event.data ? event.data.text() : 'Expiry Tracker Notification';
+self.addEventListener('install', (event) => {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(clients.claim());
+});
+
+self.addEventListener('push', (event) => {
+  const data = event.data ? event.data.json() : { title: 'Expiry Tracker', body: 'Items need your attention!' };
   const options = {
-    body: data,
+    body: data.body,
     icon: './icon.png',
-    badge: './icon.png'
+    badge: './badge.png'
   };
-  event.waitUntil(
-    self.registration.showNotification('Expiry Tracker', options)
-  );
+  event.waitUntil(self.registration.showNotification(data.title, options));
 });

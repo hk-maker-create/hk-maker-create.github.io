@@ -1,4 +1,7 @@
-document.addEventListener('DOMContentLoaded', loadProducts);
+document.addEventListener('DOMContentLoaded', () => {
+  loadProducts();
+  checkExpiryAlerts();
+});
 
 async function enableNotifications() {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
@@ -6,11 +9,50 @@ async function enableNotifications() {
     return;
   }
   try {
-    await navigator.serviceWorker.register('./sw.js');
+    const reg = await navigator.serviceWorker.register('./sw.js');
     const permission = await Notification.requestPermission();
-    alert(permission === 'granted' ? 'Notification permission granted!' : 'Permission denied.');
+    if (permission === 'granted') {
+      alert('Notification permission granted! You will be alerted about expiring items.');
+      checkExpiryAlerts();
+    } else {
+      alert('Permission denied.');
+    }
   } catch (error) {
     console.error('Error enabling notifications:', error);
+  }
+}
+
+function checkExpiryAlerts() {
+  if (Notification.permission !== 'granted') return;
+
+  const products = JSON.parse(localStorage.getItem('expiry_products') || '[]');
+  const today = new Date();
+  today.setHours(0,0,0,0);
+
+  let urgentItems = [];
+
+  products.forEach(p => {
+    const expDate = new Date(p.date);
+    expDate.setHours(0,0,0,0);
+    const diffTime = expDate - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays <= 7) {
+      urgentItems.push(p.name);
+    }
+  });
+
+  if (urgentItems.length > 0) {
+    const title = '⚠️ Expiry Alert!';
+    const body = `${urgentItems.length} item(s) are expiring within a week or have expired: ${urgentItems.slice(0, 3).join(', ')}`;
+    
+    // Trigger a native browser notification directly
+    navigator.serviceWorker.ready.then(reg => {
+      reg.showNotification(title, {
+        body: body,
+        tag: 'expiry-alert'
+      });
+    });
   }
 }
 
@@ -55,6 +97,7 @@ function showHomeView() {
   document.getElementById('add-view').classList.remove('active');
   document.getElementById('home-view').classList.add('active');
   loadProducts();
+  checkExpiryAlerts();
 }
 
 let html5QrCode = null;
@@ -159,5 +202,6 @@ function deleteProduct(id) {
     products = products.filter(p => p.id !== id);
     localStorage.setItem('expiry_products', JSON.stringify(products));
     loadProducts();
+    checkExpiryAlerts();
   }
 }
