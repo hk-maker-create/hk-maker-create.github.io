@@ -120,8 +120,10 @@ function loadProducts() {
 }
 
 function deleteProduct(id) {
-  let products = JSON.parse(localStorage.getItem('expiry_products') || '[]');
-  products = products.filter(p => p.id !== id);
-  localStorage.setItem('expiry_products', JSON.stringify(products));
-  loadProducts();
+  if (confirm('Are you sure you want to delete this product?')) {
+    let products = JSON.parse(localStorage.getItem('expiry_products') || '[]');
+    products = products.filter(p => p.id !== id);
+    localStorage.setItem('expiry_products', JSON.stringify(products));
+    loadProducts();
+  }
 }
