@@ -26,27 +26,26 @@ async function showAddView(barcode = '') {
   document.getElementById('add-view').classList.add('active');
   
   document.getElementById('product-barcode').value = barcode;
-  document.getElementById('product-name').value = 'Looking up product...';
+  const nameInput = document.getElementById('product-name');
+  nameInput.value = '';
   document.getElementById('expiry-date').value = '';
 
   if (barcode) {
+    nameInput.placeholder = 'Looking up product...';
     try {
       const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
       const data = await response.json();
       if (data.status === 1 && data.product && data.product.product_name) {
-        document.getElementById('product-name').value = data.product.product_name;
+        nameInput.value = data.product.product_name;
       } else {
-        document.getElementById('product-name').value = '';
-        document.getElementById('product-name').placeholder = 'Product not found (Enter manually)';
+        nameInput.placeholder = 'Product not found (Enter name here)';
       }
     } catch (err) {
       console.error('API lookup failed:', err);
-      document.getElementById('product-name').value = '';
-      document.getElementById('product-name').placeholder = 'Product Name';
+      nameInput.placeholder = 'Enter product name manually';
     }
   } else {
-    document.getElementById('product-name').value = '';
-    document.getElementById('product-name').placeholder = 'Product Name';
+    nameInput.placeholder = 'Product Name';
   }
 }
 
@@ -88,8 +87,8 @@ function saveProduct() {
   const barcode = document.getElementById('product-barcode').value.trim();
   const date = document.getElementById('expiry-date').value;
 
-  if (!name || !date || name === 'Looking up product...') {
-    alert('Please enter a valid product name and expiry date.');
+  if (!name || !date) {
+    alert('Please enter a product name and expiry date.');
     return;
   }
 
